@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mate Automático</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mate" />
+  <meta name="theme-color" content="#0e1a12" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+    :root {
+      --bg:      #0e1a12;
+      --bg2:     #162010;
+      --card:    #1c2b1e;
+      --border:  #2a3d2c;
+      --green:   #1a7a4a;
+      --green-l: #7ecfa0;
+      --amber-l: #f5c842;
+      --blue-l:  #7ab8f5;
+      --red:     #c0392b;
+      --red-l:   #f1948a;
+      --purple:  #6c3fa0;
+      --purple-l:#c49fe8;
+      --text:    #e8f5ec;
+      --text2:   #8ab898;
+      --text3:   #4a6e52;
+      --radius:  14px;
+      --safe-top: env(safe-area-inset-top);
+      --safe-bot: env(safe-area-inset-bottom);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100dvh; overscroll-behavior: none;
+    }
+
+    /* ══ LAYOUT ══ */
+    .appwrap {
+      padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bot) + 80px);
+    }
+
+    /* ══ HEADER ══ */
+    .header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 18px; position: relative;
+    }
+    .btn-menu {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; flex-shrink: 0;
+      position: relative; z-index: 200;
+    }
+    .btn-menu:active { background: var(--bg2); }
+    .header-center { flex: 1; text-align: center; }
+    .htitle { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    .hsub   { font-size: 11px; color: var(--text2); }
+    .header-right { width: 40px; flex-shrink: 0; display: flex; justify-content: flex-end; }
+    .badge-admin {
+      display: inline-block; background: #2a1f40;
+      border: 1px solid var(--purple); color: var(--purple-l);
+      font-size: 9px; font-weight: 700; padding: 2px 7px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* ══ MENÚ DESPLEGABLE ══ */
+    .dropdown {
+      position: absolute; top: 50px; left: 0;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); width: 220px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      z-index: 300; overflow: hidden;
+      display: none; flex-direction: column;
+    }
+    .dropdown.open { display: flex; }
+    .dropdown-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dropdown-user { font-size: 14px; font-weight: 600; }
+    .dropdown-role { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .dropdown-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 16px; font-size: 14px; cursor: pointer;
+      border: none; background: transparent; color: var(--text);
+      width: 100%; text-align: left;
+    }
+    .dropdown-item:hover { background: var(--bg2); }
+    .dropdown-item:active { background: var(--border); }
+    .dropdown-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .dropdown-sep { height: 1px; background: var(--border); margin: 4px 0; }
+    .dropdown-item.danger { color: var(--red-l); }
+
+    /* ══ OVERLAY para cerrar menú ══ */
+    .overlay {
+      position: fixed; inset: 0; z-index: 150;
+      display: none;
+    }
+    .overlay.open { display: block; }
+
+    /* ══ MODAL LOGIN / REGISTRO ══ */
+    .modal-bg {
+      position: fixed; inset: 0; z-index: 400;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center;
+      padding: 0 0 calc(var(--safe-bot) + 0px);
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0; width: 100%; max-width: 480px;
+      padding: 24px 20px calc(var(--safe-bot) + 24px);
+    }
+    .modal-handle {
+      width: 36px; height: 4px; background: var(--border);
+      border-radius: 2px; margin: 0 auto 20px;
+    }
+    .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+    .field-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .field-input {
+      width: 100%; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: 16px;
+      padding: 12px 14px; outline: none; margin-bottom: 14px;
+    }
+    .field-input:focus { border-color: var(--green); }
+    .modal-error { font-size: 13px; color: var(--red-l); margin-bottom: 10px; min-height: 18px; }
+    .btn-primary {
+      width: 100%; background: var(--green); border: none;
+      border-radius: 12px; color: #fff; font-size: 16px; font-weight: 700;
+      padding: 14px; cursor: pointer; margin-bottom: 12px;
+    }
+    .btn-primary:active { opacity: 0.8; transform: scale(0.98); }
+    .modal-switch { font-size: 13px; color: var(--text2); text-align: center; cursor: pointer; }
+    .modal-switch span { color: var(--green-l); text-decoration: underline; }
+
+    /* ══ CONN BAR ══ */
+    .conn {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px;
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background 0.3s; }
+    .dot.on { background: var(--green-l); box-shadow: 0 0 6px var(--green-l); }
+    .conn-label { font-size: 13px; color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conn input {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 13px; padding: 6px 10px; width: 138px; outline: none;
+    }
+    .conn input:focus { border-color: var(--green); }
+    .btn-sm {
+      background: var(--green); border: none; border-radius: 8px;
+      color: #fff; font-size: 13px; font-weight: 600; padding: 7px 14px; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sm:active { opacity: 0.8; }
+
+    /* ══ CARDS ══ */
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px; }
+    .card.admin-card { border-color: var(--purple); background: #1e1a2e; }
+    .clabel { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .clabel.purple { color: var(--purple-l); }
+    .cval { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
+    .cunit { font-size: 13px; font-weight: 400; color: var(--text2); }
+    .csub  { font-size: 11px; color: var(--text3); margin-top: 5px; }
+    .tbar-wrap { height: 4px; background: var(--bg2); border-radius: 2px; margin-top: 7px; overflow: hidden; }
+    .tbar { height: 100%; border-radius: 2px; background: var(--red); transition: width 0.6s, background 0.6s; }
+    .tbar.ok { background: var(--green-l); }
+    .epcos-bar { background: var(--purple); }
+
+    /* ══ SECCIÓN / PROGRESO ══ */
+    .section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+    .stitle { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .step  { display: flex; align-items: center; gap: 12px; }
+    .sicon { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; transition: all 0.3s; }
+    .sicon.active { border-color: #2471c8; background: #1a2a40; }
+    .sicon.done   { border-color: var(--green); background: #152a1e; }
+    .sicon.heat   { border-color: #d4860f; background: #2a1f0a; }
+    .sname-step { font-size: 14px; font-weight: 500; }
+    .sdetail { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+    /* ══ SLIDERS ══ */
+    .srow { margin-bottom: 16px; }
+    .srow:last-child { margin-bottom: 0; }
+    .sheader { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .sname2 { font-size: 14px; color: var(--text2); }
+    .svalx  { font-size: 14px; font-weight: 600; }
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--bg2); outline: none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--text); border: 3px solid var(--green); cursor: pointer; }
+    .bar-wrap { height: 4px; background: var(--bg2); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
+    .bg { background: var(--green-l); } .ba { background: var(--amber-l); } .bw { background: var(--blue-l); }
+
+    /* ══ BOTONES ACCIÓN ══ */
+    .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .btn-act {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 14px; border-radius: var(--radius); border: 1.5px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-act:active { transform: scale(0.96); opacity: 0.85; }
+    .btn-act.primary { background: var(--green); border-color: var(--green); }
+    .btn-act.danger  { border-color: var(--red); color: var(--red-l); }
+    .btn-act:disabled { opacity: 0.3; pointer-events: none; }
+
+    /* ══ TOAST ══ */
+    .toast {
+      position: fixed; bottom: calc(var(--safe-bot) + 20px);
+      left: 50%; transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 10px 20px;
+      font-size: 14px; color: var(--text);
+      display: none; white-space: nowrap; z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ OVERLAY (cierra menú) ══ -->
+<div class="overlay" id="overlay" onclick="cerrarMenu()"></div>
+
+<!-- ══ MODAL LOGIN / REGISTRO ══ -->
+<div class="modal-bg" id="modalBg" onclick="cerrarModalFuera(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">Iniciar sesión</div>
+
+    <!-- campo nombre solo en registro -->
+    <div id="campoNombre" style="display:none">
+      <div class="field-label">Nombre</div>
+      <input class="field-input" type="text" id="regNombre" placeholder="Tu nombre" />
+    </div>
+
+    <div class="field-label">Usuario</div>
+    <input class="field-input" type="text" id="authUser" placeholder="usuario" autocomplete="username" />
+
+    <div class="field-label">Contraseña</div>
+    <input class="field-input" type="password" id="authPass" placeholder="••••••••" autocomplete="current-password" />
+
+    <div class="modal-error" id="authError"></div>
+    <button class="btn-primary" id="btnAuthOk" onclick="doAuth()">Ingresar</button>
+    <div class="modal-switch" id="modalSwitch">
+      ¿No tenés cuenta? <span onclick="toggleModal()">Registrate</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div class="appwrap">
+
+  <!-- Header -->
+  <div class="header">
+    <!-- Menú hamburguesa -->
+    <div style="position:relative">
+      <button class="btn-menu" onclick="toggleMenu()" aria-label="Menú">☰</button>
+      <div class="dropdown" id="dropdown">
+        <div class="dropdown-header" id="ddHeader">
+          <div class="dropdown-user" id="ddUser">Invitado</div>
+          <div class="dropdown-role" id="ddRole">Sin sesión iniciada</div>
+        </div>
+        <div class="dropdown-item" id="ddLogin" onclick="abrirLogin()">
+          <span class="icon">🔑</span> Iniciar sesión
+        </div>
+        <div class="dropdown-item" id="ddRegistro" onclick="abrirRegistro()">
+          <span class="icon">✏️</span> Registrarse
+        </div>
+        <div class="dropdown-sep" id="ddSep" style="display:none"></div>
+        <div class="dropdown-item danger" id="ddLogout" style="display:none" onclick="doLogout()">
+          <span class="icon">🚪</span> Cerrar sesión
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="htitle">🧉 Mate automático</div>
+      <div class="hsub" id="hsub">Panel de control</div>
+    </div>
+
+    <div class="header-right">
+      <span class="badge-admin" id="adminBadge" style="display:none">Admin</span>
+    </div>
+  </div>
+
+  <!-- Conexión ESP32 -->
+  <div class="conn">
+    <div class="dot" id="dot"></div>
+    <span class="conn-label" id="connLabel">Desconectado</span>
+    <input type="text" id="ipInput" placeholder="192.168.1.100" inputmode="decimal" />
+    <button class="btn-sm" onclick="conectar()">Conectar</button>
+  </div>
+
+  <!-- Cards principales -->
+  <div class="row3">
+    <div class="card">
+      <div class="clabel">Temp agua</div>
+      <div class="cval" id="tempVal">--<span class="cunit">°C</span></div>
+      <div class="tbar-wrap"><div class="tbar" id="tbar" style="width:0%"></div></div>
+      <div class="csub" id="tempMeta">Obj: -- °C</div>
+    </div>
+    <div class="card">
+      <div class="clabel">Peso</div>
+      <div class="cval" id="pesoVal">--<span class="cunit">g</span></div>
+      <div class="csub" id="pesoMeta">Meta: -- g</div>
+    </div>
+    <div class="card">
+      <div class="clabel">Estado</div>
+      <div style="font-size:13px;font-weight:600;margin-top:4px;line-height:1.4;" id="estadoVal">Inactivo</div>
+    </div>
+  </div>
+
+  <!-- Cards EPCOS (solo admin) -->
+  <div class="row2" id="adminRow" style="display:none">
+    <div class="card admin-card">
+      <div class="clabel purple">🔬 EPCOS 100K</div>
+      <div class="cval" id="epcosVal" style="color:var(--purple-l)">--<span class="cunit" style="color:var(--purple-l)">°C</span></div>
+      <div class="tbar-wrap"><div class="tbar epcos-bar" id="epcosBar" style="width:0%"></div></div>
+      <div class="csub" style="color:var(--purple)">Sensor NTC B57540G</div>
+    </div>
+    <div class="card admin-card">
+      <div class="clabel purple">📊 Diferencia</div>
+      <div class="cval" id="diffVal" style="color:var(--purple-l)">--<span class="cunit" style="color:var(--purple-l)">°C</span></div>
+      <div class="csub" style="color:var(--purple)">DS18B20 vs EPCOS</div>
+    </div>
+  </div>
+
+  <!-- Progreso -->
+  <div class="section">
+    <div class="stitle">Progreso del proceso</div>
+    <div class="steps">
+      <div class="step"><div class="sicon" id="s1">🌿</div><div><div class="sname-step">Yerba</div><div class="sdetail" id="s1d">Esperando inicio</div></div></div>
+      <div class="step"><div class="sicon" id="s2">🍬</div><div><div class="sname-step">Azúcar</div><div class="sdetail" id="s2d">Esperando yerba</div></div></div>
+      <div class="step"><div class="sicon" id="s3">🔥</div><div><div class="sname-step">Calentando agua</div><div class="sdetail" id="s3d">Esperando azúcar</div></div></div>
+      <div class="step"><div class="sicon" id="s4">💧</div><div><div class="sname-step">Bomba de agua</div><div class="sdetail" id="s4d">Esperando temp</div></div></div>
+    </div>
+  </div>
+
+  <!-- Configuración -->
+  <div class="section">
+    <div class="stitle">Configuración</div>
+    <div class="srow">
+      <div class="sheader"><span class="sname2">🌡 Temperatura objetivo</span><span class="svalx" id="tv">75 °C</span></div>
+      <input type="range" min="40" max="95" step="1" value="75" id="ts" oninput="sl('ts','tv',v=>v+' °C',null,0,0,'temperatura')" />
+    </div>
+    <div class="srow">
+      <div class="sheader"><span class="sname2">🌿 Yerba</span><span class="svalx" id="yv">30 g</span></div>
+      <input type="range" min="10" max="80" step="1" value="30" id="ys" oninput="sl('ys','yv',v=>v+' g','ybar',10,80,'yerba')" />
+      <div class="bar-wrap"><div class="bar bg" id="ybar" style="width:27%"></div></div>
+    </div>
+    <div class="srow">
+      <div class="sheader"><span class="sname2">🍬 Azúcar</span><span class="svalx" id="av">20 g</span></div>
+      <input type="range" min="0" max="60" step="1" value="20" id="as" oninput="sl('as','av',v=>v+' g','abar',0,60,'azucar')" />
+      <div class="bar-wrap"><div class="bar ba" id="abar" style="width:33%"></div></div>
+    </div>
+    <div class="srow">
+      <div class="sheader"><span class="sname2">💧 Agua</span><span class="svalx" id="wv">40 ml</span></div>
+      <input type="range" min="20" max="300" step="5" value="40" id="ws" oninput="sl('ws','wv',v=>v+' ml','wbar',20,300,'agua')" />
+      <div class="bar-wrap"><div class="bar bw" id="wbar" style="width:7%"></div></div>
+    </div>
+  </div>
+
+  <div class="acts">
+    <button class="btn-act primary" id="btnEnviar"  onclick="enviarConfig()" disabled>⬆ Enviar config</button>
+    <button class="btn-act"         id="btnRefresh" onclick="leerEstado()"   disabled>↻ Actualizar</button>
+    <button class="btn-act"         id="btnIniciar" onclick="iniciar()"      disabled>▶ Iniciar</button>
+    <button class="btn-act danger"  id="btnDetener" onclick="detener()"      disabled>■ Detener</button>
+  </div>
+
+</div><!-- /appwrap -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// USUARIOS
+// admin está hardcodeado; los registrados se guardan en localStorage
+// ══════════════════════════════════════════
+const ADMIN = { username: 'admin', pass: 'admin123', nombre: 'Administrador', role: 'admin' };
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('mateUsers') || '[]'); } catch { return []; }
+}
+function saveUsers(arr) { localStorage.setItem('mateUsers', JSON.stringify(arr)); }
+
+// ── Sesión actual ──
+let currentUser = null; // null = invitado
+let isAdmin = false;
+
+// Restaurar sesión
+const savedSession = sessionStorage.getItem('mateSession');
+if (savedSession) {
+  try {
+    const s = JSON.parse(savedSession);
+    aplicarSesion(s);
+  } catch {}
+}
+
+function aplicarSesion(user) {
+  currentUser = user;
+  isAdmin = user.role === 'admin';
+  // Dropdown
+  document.getElementById('ddUser').textContent   = user.nombre || user.username;
+  document.getElementById('ddRole').textContent   = isAdmin ? '👑 Administrador' : '👤 Usuario registrado';
+  document.getElementById('ddLogin').style.display    = 'none';
+  document.getElementById('ddRegistro').style.display = 'none';
+  document.getElementById('ddSep').style.display      = 'block';
+  document.getElementById('ddLogout').style.display   = 'flex';
+  // Header
+  document.getElementById('hsub').textContent = 'Hola, ' + (user.nombre || user.username);
+  document.getElementById('adminBadge').style.display = isAdmin ? 'inline-block' : 'none';
+  document.getElementById('adminRow').style.display   = isAdmin ? 'grid' : 'none';
+}
+
+function quitarSesion() {
+  currentUser = null; isAdmin = false;
+  document.getElementById('ddUser').textContent   = 'Invitado';
+  document.getElementById('ddRole').textContent   = 'Sin sesión iniciada';
+  document.getElementById('ddLogin').style.display    = 'flex';
+  document.getElementById('ddRegistro').style.display = 'flex';
+  document.getElementById('ddSep').style.display      = 'none';
+  document.getElementById('ddLogout').style.display   = 'none';
+  document.getElementById('hsub').textContent         = 'Panel de control';
+  document.getElementById('adminBadge').style.display = 'none';
+  document.getElementById('adminRow').style.display   = 'none';
+}
+
+// ══ MENÚ ══
+function toggleMenu() {
+  const dd = document.getElementById('dropdown');
+  const ov = document.getElementById('overlay');
+  const open = dd.classList.toggle('open');
+  ov.classList.toggle('open', open);
+}
+function cerrarMenu() {
+  document.getElementById('dropdown').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// ══ MODAL ══
+let modoModal = 'login'; // 'login' | 'registro'
+
+function abrirLogin() {
+  cerrarMenu(); modoModal = 'login';
+  document.getElementById('modalTitle').textContent = 'Iniciar sesión';
+  document.getElementById('campoNombre').style.display = 'none';
+  document.getElementById('btnAuthOk').textContent = 'Ingresar';
+  document.getElementById('modalSwitch').innerHTML = '¿No tenés cuenta? <span onclick="toggleModal()">Registrate</span>';
+  document.getElementById('authUser').value = '';
+  document.getElementById('authPass').value = '';
+  document.getElementById('regNombre').value = '';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function abrirRegistro() {
+  cerrarMenu(); modoModal = 'registro';
+  document.getElementById('modalTitle').textContent = 'Crear cuenta';
+  document.getElementById('campoNombre').style.display = 'block';
+  document.getElementById('btnAuthOk').textContent = 'Registrarse';
+  document.getElementById('modalSwitch').innerHTML = '¿Ya tenés cuenta? <span onclick="toggleModal()">Iniciá sesión</span>';
+  document.getElementById('authUser').value = '';
+  document.getElementById('authPass').value = '';
+  document.getElementById('regNombre').value = '';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function toggleModal() {
+  modoModal === 'login' ? abrirRegistro() : abrirLogin();
+}
+
+function cerrarModal() { document.getElementById('modalBg').classList.remove('open'); }
+function cerrarModalFuera(e) { if (e.target === document.getElementById('modalBg')) cerrarModal(); }
+
+function doAuth() {
+  const username = document.getElementById('authUser').value.trim();
+  const pass     = document.getElementById('authPass').value;
+  const err      = document.getElementById('authError');
+
+  if (!username || !pass) { err.textContent = 'Completá todos los campos'; return; }
+
+  if (modoModal === 'login') {
+    // Admin hardcodeado
+    if (username === ADMIN.username && pass === ADMIN.pass) {
+      const u = { username: ADMIN.username, nombre: ADMIN.nombre, role: 'admin' };
+      sessionStorage.setItem('mateSession', JSON.stringify(u));
+      aplicarSesion(u); cerrarModal(); toast('✅ Bienvenido, Administrador'); return;
+    }
+    // Usuarios registrados
+    const users = getUsers();
+    const found = users.find(u => u.username === username && u.pass === pass);
+    if (!found) { err.textContent = 'Usuario o contraseña incorrectos'; return; }
+    const u = { username: found.username, nombre: found.nombre, role: 'user' };
+    sessionStorage.setItem('mateSession', JSON.stringify(u));
+    aplicarSesion(u); cerrarModal(); toast('✅ Bienvenido, ' + (found.nombre || found.username));
+
+  } else {
+    // Registro
+    const nombre = document.getElementById('regNombre').value.trim();
+    if (!nombre) { err.textContent = 'Ingresá tu nombre'; return; }
+    if (username === ADMIN.username) { err.textContent = 'Ese nombre de usuario no está disponible'; return; }
+    if (pass.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
+    const users = getUsers();
+    if (users.find(u => u.username === username)) { err.textContent = 'Ese usuario ya existe'; return; }
+    users.push({ username, pass, nombre });
+    saveUsers(users);
+    const u = { username, nombre, role: 'user' };
+    sessionStorage.setItem('mateSession', JSON.stringify(u));
+    aplicarSesion(u); cerrarModal(); toast('✅ Cuenta creada. Bienvenido, ' + nombre);
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('mateSession');
+  quitarSesion(); cerrarMenu(); toast('👋 Sesión cerrada');
+}
+
+// Enter en password
+document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+
+// ══════════════════════════════════════════
+// CONEXIÓN ESP32
+// ══════════════════════════════════════════
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+const savedIp = localStorage.getItem('esp32ip');
+if (savedIp) document.getElementById('ipInput').value = savedIp;
+
+let conectado = false, espUrl = '', poll = null;
+let cfg = { yerba: 30, azucar: 20, agua: 40, temperatura: 75 };
+
+function sl(inputId, labelId, fmt, barId, min, max, key) {
+  const v = +document.getElementById(inputId).value;
+  document.getElementById(labelId).textContent = fmt(v);
+  if (barId) document.getElementById(barId).style.width = Math.round((v-min)/(max-min)*100)+'%';
+  cfg[key] = v;
+}
+
+function toast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(()=> t.style.display='none', dur);
+}
+
+function setBtns(on) {
+  ['btnEnviar','btnRefresh','btnIniciar','btnDetener'].forEach(id =>
+    document.getElementById(id).disabled = !on
+  );
+}
+
+async function conectar() {
+  const ip = document.getElementById('ipInput').value.trim();
+  if (!ip) return;
+  espUrl = 'http://' + ip;
+  localStorage.setItem('esp32ip', ip);
+  try {
+    const r = await fetch(espUrl + '/status', { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      conectado = true;
+      document.getElementById('dot').classList.add('on');
+      document.getElementById('connLabel').textContent = ip;
+      setBtns(true);
+      toast('✅ Conectado al ESP32');
+      leerEstado();
+      if (poll) clearInterval(poll);
+      poll = setInterval(leerEstado, 2000);
+    }
+  } catch { toast('❌ Sin respuesta. Verificá la IP y el WiFi.'); }
+}
+
+async function leerEstado() {
+  if (!conectado) return;
+  try {
+    const r = await fetch(espUrl + '/temperatura', { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    const temp    = parseFloat(d.temperatura || 0);
+    const tempObj = parseFloat(d.temp_objetivo || cfg.temperatura);
+    const peso    = parseFloat(d.peso || 0);
+    const estado  = d.estado || 'Activo';
+
+    document.getElementById('tempVal').innerHTML = temp.toFixed(1)+'<span class="cunit">°C</span>';
+    document.getElementById('tempMeta').textContent = 'Obj: '+tempObj.toFixed(0)+'°C';
+    const pct = Math.min(Math.round(temp/tempObj*100),100);
+    const bar = document.getElementById('tbar');
+    bar.style.width = pct+'%'; bar.className = 'tbar'+(temp>=tempObj?' ok':'');
+    document.getElementById('pesoVal').innerHTML = peso.toFixed(1)+'<span class="cunit">g</span>';
+    document.getElementById('pesoMeta').textContent = 'Meta: '+(10+cfg.yerba+cfg.azucar+cfg.agua).toFixed(0)+'g';
+    document.getElementById('estadoVal').textContent = estado;
+
+    if (isAdmin && d.temp_epcos !== undefined) {
+      const epcos = parseFloat(d.temp_epcos);
+      document.getElementById('epcosVal').innerHTML = epcos.toFixed(1)+'<span class="cunit" style="color:var(--purple-l)">°C</span>';
+      document.getElementById('epcosBar').style.width = Math.min(Math.round(epcos/100*100),100)+'%';
+      const diff = (temp-epcos).toFixed(1);
+      document.getElementById('diffVal').innerHTML = (diff>0?'+':'')+diff+'<span class="cunit" style="color:var(--purple-l)">°C</span>';
+    }
+    actualizarPasos(estado, temp, tempObj);
+  } catch { document.getElementById('estadoVal').textContent = 'Sin señal'; }
+}
+
+function actualizarPasos(estado, temp, tempObj) {
+  const s = estado.toLowerCase();
+  function set(id,dd,cls,detail) {
+    document.getElementById(id).className='sicon'+(cls?' '+cls:'');
+    document.getElementById(dd).textContent=detail;
+  }
+  if (s.includes('yerba')) {
+    set('s1','s1d','active','Dispensando...');set('s2','s2d','','Esperando');set('s3','s3d','','Esperando');set('s4','s4d','','Esperando');
+  } else if (s.includes('az')) {
+    set('s1','s1d','done','✓ Listo');set('s2','s2d','active','Dispensando...');set('s3','s3d','','Esperando');set('s4','s4d','','Esperando');
+  } else if (s.includes('calentando')) {
+    set('s1','s1d','done','✓');set('s2','s2d','done','✓');
+    set('s3','s3d','heat',temp.toFixed(1)+'°C / '+tempObj.toFixed(0)+'°C');set('s4','s4d','','Esperando');
+  } else if (s.includes('bomba')) {
+    set('s1','s1d','done','✓');set('s2','s2d','done','✓');set('s3','s3d','done','✓ '+temp.toFixed(1)+'°C');set('s4','s4d','active','Activa...');
+  } else if (s.includes('listo')||s.includes('terminado')) {
+    set('s1','s1d','done','✓');set('s2','s2d','done','✓');set('s3','s3d','done','✓ '+temp.toFixed(1)+'°C');set('s4','s4d','done','✓');
+  } else {
+    set('s1','s1d','','Esperando inicio');set('s2','s2d','','Esperando yerba');set('s3','s3d','','Esperando azúcar');set('s4','s4d','','Esperando temp');
+  }
+}
+
+async function enviarConfig() {
+  if (!conectado) return;
+  try {
+    await fetch(espUrl+'/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg),signal:AbortSignal.timeout(3000)});
+    toast('✅ Configuración enviada');
+  } catch { toast('❌ Error al enviar'); }
+}
+async function iniciar() {
+  if (!conectado) return;
+  try { await fetch(espUrl+'/iniciar',{method:'POST',signal:AbortSignal.timeout(3000)}); toast('▶ Proceso iniciado'); }
+  catch { toast('❌ Error al iniciar'); }
+}
+async function detener() {
+  if (!conectado) return;
+  try { await fetch(espUrl+'/detener',{method:'POST',signal:AbortSignal.timeout(3000)}); toast('■ Proceso detenido'); }
+  catch { toast('❌ Error al detener'); }
+}
+</script>
+</body>
+</html>
